@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+
+# Build output (run `npm run build` after clone)
+dist/
+*.tsbuildinfo
+
+# Environment and secrets — never commit real tokens
+.env
+.env.*
+!.env.example
+
+# Local overrides that often hold credentials
+.env.local
+.env.*.local
+*.pem
+*.key
+id_rsa*
+*.p12
+*.pfx
+
+# MCP / IDE configs that may embed tokens or absolute paths
+.cursor/mcp.json
+.cursor/mcp.local.json
+**/.cursor/mcp.local.json
+*.mcp.local.json
+
+# Logs and debug
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test / coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE (keep shared settings optional; ignore user-local)
+.idea/
+*.swp
+*.swo
+*~
+
+# Temp scratch
+tmp/
+temp/
+*.tmp
+.cache/

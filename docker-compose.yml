@@ -59,16 +59,14 @@ services:
       - mcp-net
 
 networks:
-  # Shared across the MCP servers and their consumers (e.g. Bombardier).
+  # Shared across the MCP servers and Bombardier. `external` because the network's lifecycle
+  # belongs to none of them: whoever declares it non-external gets stamped as its owner, and
+  # every OTHER stack then warns "a network with name mcp-net exists but was not created for
+  # project X". Declaring it external everywhere is the correct semantics and silences that.
   #
-  # NOT `external: true` — that would require a manual `docker network create` first.
-  # Instead the name is pinned, which does two things:
-  #   * whichever stack starts first CREATES it, the rest attach to the same network
-  #   * `name:` suppresses the usual <project>_ prefix, so all stacks land on one network
-  #     rather than three isolated ones called bombardier_mcp-net, xray-mcp_mcp-net, ...
-  #
-  # `docker compose down` may warn that it cannot remove mcp-net while another stack is
-  # still attached. That warning is harmless — the network is shared on purpose.
+  # It already exists, so nothing to run. Only needed again on a fresh machine, or if you
+  # ever `docker network rm mcp-net`:
+  #     docker network create mcp-net
   mcp-net:
+    external: true
     name: mcp-net
-    driver: bridge

@@ -29,6 +29,10 @@ services:
       context: ${GITLAB_MCP_CONTEXT:-.}
       dockerfile: Dockerfile
     image: gitlab-mcp:local
+    # Local-only tag: without this, Compose first tries to pull it from Docker Hub and
+    # prints a confusing "pull access denied ... repository does not exist" line before
+    # building anyway.
+    pull_policy: build
     container_name: gitlab-mcp
     restart: unless-stopped
     environment:

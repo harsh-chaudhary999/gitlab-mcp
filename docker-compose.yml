@@ -48,8 +48,13 @@ services:
       - MCP_SERVER_NAME=${MCP_SERVER_NAME:-gitlab-mcp}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - RATE_LIMIT_REQUESTS_PER_SECOND=${RATE_LIMIT_REQUESTS_PER_SECOND:-10}
-    # ports:
-    #   - "127.0.0.1:3101:3101"
+    ports:
+      # Loopback ONLY. This is what lets tools on the host (e.g. an MCP client) reach the
+      # server at a stable address, since container IPs on mcp-net change on recreate.
+      # Do NOT change to 0.0.0.0 — that would expose write-capable GitLab tools with no
+      # authentication to the whole network. Bombardier does not use this port; it reaches
+      # the server by service name over mcp-net.
+      - "127.0.0.1:3101:3101"
     networks:
       - mcp-net
 

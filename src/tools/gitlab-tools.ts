@@ -4,6 +4,68 @@ import { gitlabSchemas } from '../schemas/gitlab-schemas';
 import { formatSuccessResponse, formatErrorResponse } from '../utils/error-handler';
 
 export const gitlabToolDefinitions = [
+  // --- Group ("space") — start here for multi-repo work ---
+  {
+    name: 'gitlab_list_group_projects',
+    description:
+      'List all repositories (projects) in a GitLab group, including nested subgroups by ' +
+      'default. Call this FIRST to discover which repos exist and their IDs, then pass ' +
+      'projectId to any other tool to operate on a specific repo. A GitLab group is the ' +
+      'equivalent of a workspace or space.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        groupId: { type: 'string', description: 'Group ID or URL-encoded full path. Uses configured default if omitted.' },
+        includeSubgroups: { type: 'boolean', description: 'Include repos in nested subgroups (default: true)' },
+        search: { type: 'string', description: 'Filter repos by name substring' },
+        includeArchived: { type: 'boolean', description: 'Include archived repos (default: false)' },
+        orderBy: {
+          type: 'string',
+          enum: ['name', 'path', 'created_at', 'updated_at', 'last_activity_at'],
+          description: 'Sort field (default: last_activity_at)'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'gitlab_get_group',
+    description: 'Get information about a GitLab group (space): name, full path, description, URL',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        groupId: { type: 'string', description: 'Group ID or URL-encoded full path. Uses configured default if omitted.' }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'gitlab_list_subgroups',
+    description: 'List direct subgroups of a GitLab group. Use to navigate a nested group structure.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        groupId: { type: 'string', description: 'Group ID or URL-encoded full path. Uses configured default if omitted.' }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'gitlab_find_projects',
+    description:
+      'Search repositories by name across everything this token can access (or within the ' +
+      'configured group). Use when you know a repo by name but not its ID or full path, or ' +
+      'when no group is configured. Returns full paths you can pass as projectId.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        search: { type: 'string', description: 'Repo name or partial name' },
+        groupId: { type: 'string', description: 'Restrict to this group (optional)' }
+      },
+      required: ['search']
+    }
+  },
+
   // --- Project ---
   {
     name: 'gitlab_get_project',
@@ -197,6 +259,70 @@ export async function handleGitLabTool(
 ): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
   try {
     switch (toolName) {
+      // Group ("space")
+      case 'gitlab_list_group_projects': {
+        const params = gitlabSchemas.listGroupProjects.parse(args);
+        const projects = await gitlabClient.listGroupProjects(params.groupId, {
+          includeSubgroups: params.includeSubgroups,
+          search: params.search,
+          includeArchived: params.includeArchived,
+          orderBy: params.orderBy
+        });
+        // Return a trimmed shape: full GitLab project objects are ~100 fields each, which
+        // would flood an agent's context for a group with dozens of repos.
+        return formatSuccessResponse({
+          total: projects.length,
+          projects: projects.map(p => ({
+            id: p.id,
+            name: p.name,
+            path_with_namespace: p.path_with_namespace,
+            default_branch: p.default_branch,
+            web_url: p.web_url,
+            description: p.description ?? null,
+            archived: p.archived ?? false,
+            last_activity_at: p.last_activity_at
+          }))
+        });
+      }
+      case 'gitlab_get_group': {
+        const params = gitlabSchemas.getGroup.parse(args);
+        const result = await gitlabClient.getGroup(params.groupId);
+        return formatSuccessResponse(result);
+      }
+      case 'gitlab_find_projects': {
+        const params = gitlabSchemas.findProjects.parse(args);
+        const projects = await gitlabClient.findProjects(params.search, params.groupId);
+        return formatSuccessResponse({
+          total: projects.length,
+          // path_with_namespace is what you pass back as projectId.
+          projects: projects.map(p => ({
+            id: p.id,
+            name: p.name,
+            path_with_namespace: p.path_with_namespace,
+            default_branch: p.default_branch,
+            web_url: p.web_url,
+            description: p.description ?? null,
+            // null rather than false: the token-wide search uses GitLab's `simple`
+            // representation, which omits this field — do not imply "not archived".
+            archived: p.archived ?? null
+          }))
+        });
+      }
+      case 'gitlab_list_subgroups': {
+        const params = gitlabSchemas.listSubgroups.parse(args);
+        const groups = await gitlabClient.listSubgroups(params.groupId);
+        return formatSuccessResponse({
+          total: groups.length,
+          subgroups: groups.map(g => ({
+            id: g.id,
+            name: g.name,
+            full_path: g.full_path,
+            description: g.description ?? null,
+            web_url: g.web_url
+          }))
+        });
+      }
+
       // Project
       case 'gitlab_get_project': {
         const params = gitlabSchemas.getProject.parse(args);

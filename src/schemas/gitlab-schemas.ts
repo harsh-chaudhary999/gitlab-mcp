@@ -8,6 +8,29 @@ const commitActionSchema = z.object({
 });
 
 export const gitlabSchemas = {
+  // Group ("space") — multi-repo entry point
+  getGroup: z.object({
+    groupId: z.string().optional().describe('Group ID or URL-encoded full path. Uses GITLAB_GROUP_ID if omitted.')
+  }),
+
+  listGroupProjects: z.object({
+    groupId: z.string().optional().describe('Group ID or URL-encoded full path. Uses GITLAB_GROUP_ID if omitted.'),
+    includeSubgroups: z.boolean().optional().default(true).describe('Include repos in nested subgroups'),
+    search: z.string().optional().describe('Filter repos by name substring'),
+    includeArchived: z.boolean().optional().default(false).describe('Include archived repos'),
+    orderBy: z.enum(['name', 'path', 'created_at', 'updated_at', 'last_activity_at'])
+      .optional().describe('Sort field (default: last_activity_at)')
+  }),
+
+  listSubgroups: z.object({
+    groupId: z.string().optional().describe('Group ID or URL-encoded full path. Uses GITLAB_GROUP_ID if omitted.')
+  }),
+
+  findProjects: z.object({
+    search: z.string().min(1).describe('Repo name or partial name to search for'),
+    groupId: z.string().optional().describe('Restrict to this group. Uses GITLAB_GROUP_ID if set, else searches all accessible projects.')
+  }),
+
   // Project
   getProject: z.object({
     projectId: z.string().optional().describe('Project ID or URL-encoded path. Uses default if omitted.')

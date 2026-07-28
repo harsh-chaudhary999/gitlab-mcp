@@ -29,8 +29,14 @@ export class GitLabAuthManager {
     return `${this.baseUrl}/api/v4`;
   }
 
-  getProjectId(): string {
+  /** Default project used when a tool call omits projectId. Undefined in group-only setups. */
+  getProjectId(): string | undefined {
     return config.gitlab.projectId;
+  }
+
+  /** Default group ("space") whose repos this server browses. Undefined in single-repo setups. */
+  getGroupId(): string | undefined {
+    return config.gitlab.groupId;
   }
 }
 

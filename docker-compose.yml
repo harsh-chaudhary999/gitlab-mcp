@@ -12,6 +12,10 @@
 # server has no authentication and can create branches, commits and merge requests.
 # Uncomment `ports` for host-side debugging.
 #
+# Scope is optional. GITLAB_GROUP_ID browses every repo in a group ("space");
+# GITLAB_PROJECT_ID pins a default. With neither, the token alone works — pass a repo
+# name, full path, or numeric ID per call (gitlab_find_projects discovers names).
+#
 # Note: Bombardier does NOT use this server — it ingests GitLab through the REST API
 # directly (ingestion/gitlab_ingestor.py). Run it only if something else consumes it.
 
@@ -28,9 +32,13 @@ services:
     container_name: gitlab-mcp
     restart: unless-stopped
     environment:
-      # ── GitLab (required — zod validation aborts startup if missing) ──
+      # ── GitLab (zod validation aborts startup on a bad combination) ──
       - GITLAB_TOKEN=${GITLAB_TOKEN:?Set GITLAB_TOKEN in .env}
-      - GITLAB_PROJECT_ID=${GITLAB_PROJECT_ID:?Set GITLAB_PROJECT_ID in .env}
+      # Scope: both optional. GROUP_ID browses every repo in a group; PROJECT_ID pins a
+      # default. With neither, the token alone is enough — repos resolve by numeric ID,
+      # full path, or name (searched). A group makes name lookups narrower and faster.
+      - GITLAB_GROUP_ID=${GITLAB_GROUP_ID:-}
+      - GITLAB_PROJECT_ID=${GITLAB_PROJECT_ID:-}
       - GITLAB_BASE_URL=${GITLAB_BASE_URL:-https://gitlab.com}
       # ── Server ──
       - MCP_HTTP_PORT=3101

@@ -7,7 +7,15 @@ const configSchema = z.object({
   gitlab: z.object({
     baseUrl: z.string().min(1, 'GITLAB_BASE_URL is required'),
     token: z.string().min(1, 'GITLAB_TOKEN is required'),
-    projectId: z.string().min(1, 'GITLAB_PROJECT_ID is required')
+    // Group ("space") to browse. With this set the server is multi-repo: list the projects
+    // in the group, then pass projectId per call. Numeric ID or URL-encoded full path.
+    groupId: z.string().optional(),
+    // Optional default project, used when a tool call omits projectId. Convenient for
+    // single-repo setups; unnecessary when working group-wide.
+    projectId: z.string().optional()
+    // Neither is required. With only a token, the server runs in "token-only" mode: any
+    // repo the token can see is reachable by numeric ID, full path, or plain name (resolved
+    // by search). A group narrows that search and removes most name ambiguity.
   }),
   server: z.object({
     name: z.string().default('gitlab-mcp'),
@@ -26,7 +34,10 @@ function loadConfig(): Config {
     gitlab: {
       baseUrl: process.env.GITLAB_BASE_URL || `https://${process.env.GITLAB_HOST || 'gitlab.com'}`,
       token: process.env.GITLAB_TOKEN || '',
-      projectId: process.env.GITLAB_PROJECT_ID || ''
+      // Empty string -> undefined, so the "at least one of group/project" check works and
+      // an unset default never produces a /projects//... URL.
+      groupId: process.env.GITLAB_GROUP_ID || undefined,
+      projectId: process.env.GITLAB_PROJECT_ID || undefined
     },
     server: {
       name: process.env.MCP_SERVER_NAME || 'gitlab-mcp',
@@ -47,7 +58,18 @@ function loadConfig(): Config {
     throw new Error(`Configuration validation failed:\n${errors}`);
   }
 
-  return result.data;
+  const cfg = result.data;
+  if (!cfg.gitlab.groupId && !cfg.gitlab.projectId) {
+    // Valid, but worth flagging: a plain project name then has to be searched across every
+    // repo the token can see, which is slower and far more likely to be ambiguous.
+    console.error(
+      '[config] No GITLAB_GROUP_ID or GITLAB_PROJECT_ID set — running in token-only mode. ' +
+      'Repos are reachable by numeric ID, full path, or name (resolved by search across all ' +
+      'accessible projects). Set GITLAB_GROUP_ID to scope name lookups to one group.'
+    );
+  }
+
+  return cfg;
 }
 
 export const config = loadConfig();

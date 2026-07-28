@@ -1,0 +1,48 @@
+# gitlab-mcp — Streamable HTTP transport in a container. No local Node needed.
+#
+# Standalone:
+#   cp .env.example .env     # fill in credentials
+#   docker network create mcp-net    # once, shared with consumers
+#   docker compose up -d --build
+#
+# Both servers with one command: see the header of ../xray-mcp/docker-compose.yml
+# (merged mode needs explicit context vars and two --env-file flags).
+#
+# Reachable on `mcp-net` at http://gitlab-mcp:3101/mcp. No host ports are published: this
+# server has no authentication and can create branches, commits and merge requests.
+# Uncomment `ports` for host-side debugging.
+#
+# Note: Bombardier does NOT use this server — it ingests GitLab through the REST API
+# directly (ingestion/gitlab_ingestor.py). Run it only if something else consumes it.
+
+services:
+
+  gitlab-mcp:
+    build:
+      # Defaults to this repo, which is correct standalone. When merged with another
+      # compose file via -f, relative paths resolve against the PROJECT directory (the
+      # first -f file's dir), so pass GITLAB_MCP_CONTEXT explicitly then — see the header.
+      context: ${GITLAB_MCP_CONTEXT:-.}
+      dockerfile: Dockerfile
+    image: gitlab-mcp:local
+    container_name: gitlab-mcp
+    restart: unless-stopped
+    environment:
+      # ── GitLab (required — zod validation aborts startup if missing) ──
+      - GITLAB_TOKEN=${GITLAB_TOKEN:?Set GITLAB_TOKEN in .env}
+      - GITLAB_PROJECT_ID=${GITLAB_PROJECT_ID:?Set GITLAB_PROJECT_ID in .env}
+      - GITLAB_BASE_URL=${GITLAB_BASE_URL:-https://gitlab.com}
+      # ── Server ──
+      - MCP_HTTP_PORT=3101
+      - MCP_SERVER_NAME=${MCP_SERVER_NAME:-gitlab-mcp}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - RATE_LIMIT_REQUESTS_PER_SECOND=${RATE_LIMIT_REQUESTS_PER_SECOND:-10}
+    # ports:
+    #   - "127.0.0.1:3101:3101"
+    networks:
+      - mcp-net
+
+networks:
+  mcp-net:
+    external: true
+    name: mcp-net
